@@ -1,0 +1,9 @@
+{
+  "name": "roster-planner",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": { "dev": "vite", "build": "vite build", "preview": "vite preview", "test": "vitest run" },
+  "dependencies": { "idb": "^8.0.2" },
+  "devDependencies": { "fake-indexeddb": "^6.0.0", "vite": "^7.0.0", "vite-plugin-pwa": "^1.0.0", "vitest": "^3.0.0" }
+}

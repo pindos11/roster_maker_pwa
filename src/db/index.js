@@ -1,14 +1,15 @@
 import { openDB } from 'idb';
 import { uuid, now, clone } from '../core/utils.js';
 const stores = ['locations', 'employees', 'availabilities', 'shiftRules', 'rosters', 'rosterVersions'];
-export const dbPromise = openDB('rosterPlanner', 1, { upgrade(db) {
-  const location = db.createObjectStore('locations', { keyPath: 'id' });
-  const employee = db.createObjectStore('employees', { keyPath: 'id' }); employee.createIndex('name', 'name'); employee.createIndex('locationId', 'locationId');
-  const availability = db.createObjectStore('availabilities', { keyPath: 'id' }); availability.createIndex('employeeId', 'employeeId'); availability.createIndex('startDate', 'startDate'); availability.createIndex('endDate', 'endDate');
-  const rule = db.createObjectStore('shiftRules', { keyPath: 'id' }); rule.createIndex('locationId', 'locationId');
-  const roster = db.createObjectStore('rosters', { keyPath: 'id' }); roster.createIndex('yearMonth', ['year', 'month']);
-  const version = db.createObjectStore('rosterVersions', { keyPath: 'id' }); version.createIndex('rosterId', 'rosterId'); version.createIndex('rosterStatus', ['rosterId', 'status']);
-  db.createObjectStore('settings', { keyPath: 'key' });
+export const dbPromise = openDB('rosterPlanner', 2, { upgrade(db, _oldVersion, _newVersion, upgradeTx) {
+  const ensure = (name, indexes = []) => { const target = db.objectStoreNames.contains(name) ? upgradeTx.objectStore(name) : db.createObjectStore(name, { keyPath: 'id' }); indexes.forEach(([index, key]) => { if (!target.indexNames.contains(index)) target.createIndex(index, key); }); };
+  ensure('locations');
+  ensure('employees', [['name', 'name'], ['locationId', 'locationId']]);
+  ensure('availabilities', [['employeeId', 'employeeId'], ['startDate', 'startDate'], ['endDate', 'endDate']]);
+  ensure('shiftRules', [['locationId', 'locationId']]);
+  ensure('rosters', [['yearMonth', ['year', 'month']]]);
+  ensure('rosterVersions', [['rosterId', 'rosterId'], ['rosterStatus', ['rosterId', 'status']]]);
+  if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
 }});
 export async function list(store) { return (await dbPromise).getAll(store); }
 export async function get(store, id) { return (await dbPromise).get(store, id); }

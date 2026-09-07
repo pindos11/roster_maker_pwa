@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseAvailabilityText, isUnavailable } from '../src/core/availability.js';
 import { monthDates, normalizedName } from '../src/core/utils.js';
 import { generate } from '../src/core/generator.js';
+import { create, get, remove } from '../src/db/index.js';
 
 describe('calendar and availability', () => {
   it('normalizes names and validates availability input', () => {
@@ -18,5 +19,10 @@ describe('calendar and availability', () => {
     const availability=[{employeeId:'a',startDate:'2026-10-01',endDate:'2026-10-01'}];
     expect(generate(roster,null,rules,employees,availability,{seed:'same'}).shifts[0].assignments[0].employeeId).toBe('b');
     expect(monthDates(2026,2)).toHaveLength(28);
+  });
+  it('persists records into the requested IndexedDB store', async () => {
+    const location = await create('locations', { name: 'Test location' });
+    expect((await get('locations', location.id)).name).toBe('Test location');
+    await remove('locations', location.id);
   });
 });

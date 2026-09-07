@@ -15,7 +15,7 @@ export const dbPromise = openDB('rosterPlanner', 3, { upgrade(db, _oldVersion, _
 }});
 export async function list(store) { return (await dbPromise).getAll(store); }
 export async function get(store, id) { return (await dbPromise).get(store, id); }
-export async function save(store, item) { await (await dbPromise).put(item); return item; }
+export async function save(store, item) { await (await dbPromise).put(store, item); return item; }
 export async function remove(store, id) { return (await dbPromise).delete(store, id); }
 export async function create(store, values) { return save(store, { id: uuid(), ...values, createdAt: now(), updatedAt: now() }); }
 export async function versionsFor(rosterId) { return (await dbPromise).getAllFromIndex('rosterVersions', 'rosterId', rosterId); }

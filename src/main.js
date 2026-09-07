@@ -7,7 +7,7 @@ import { generateProposal, regenerateProposalFrom, acceptProposal, copyProductiv
 import { monthDates, uuid } from './core/utils.js';
 const app = document.querySelector('#app'); let toast = ''; let preview;
 const channel = new BroadcastChannel('roster-planner'); channel.onmessage = () => { toast = 'Data changed in another tab. View refreshed.'; render(); };
-registerSW({ onNeedRefresh() { toast = 'A new version is available. Reload the page to update.'; render(); } });
+registerSW({ onNeedRefresh() { toast = 'A new version is available. Reload the page to update.'; route(); } });
 const deps = async () => ({ employees: await list('employees'), availabilities: await list('availabilities'), rules: await list('shiftRules') });
 const notice = (text) => `<p class="notice">${text}</p>`;
 const nav = () => `<header><h1>Roster Planner</h1><nav><a href="#/rosters">Rosters</a><a href="#/employees">Employees</a><a href="#/locations">Locations</a><a href="#/availability">Availability</a><a href="#/rules">Shift rules</a><a href="#/settings">Settings</a></nav></header>`;

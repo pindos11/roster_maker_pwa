@@ -1,7 +1,9 @@
 import { openDB } from 'idb';
 import { uuid, now, clone } from '../core/utils.js';
 const stores = ['locations', 'employees', 'availabilities', 'shiftRules', 'rosters', 'rosterVersions'];
-export const dbPromise = openDB('rosterPlanner', 2, { upgrade(db, _oldVersion, _newVersion, upgradeTx) {
+// Version 3 deliberately re-runs the idempotent schema repair for browsers that
+// previously opened an incomplete v1/v2 database.
+export const dbPromise = openDB('rosterPlanner', 3, { upgrade(db, _oldVersion, _newVersion, upgradeTx) {
   const ensure = (name, indexes = []) => { const target = db.objectStoreNames.contains(name) ? upgradeTx.objectStore(name) : db.createObjectStore(name, { keyPath: 'id' }); indexes.forEach(([index, key]) => { if (!target.indexNames.contains(index)) target.createIndex(index, key); }); };
   ensure('locations');
   ensure('employees', [['name', 'name'], ['locationId', 'locationId']]);

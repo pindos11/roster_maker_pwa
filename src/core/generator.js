@@ -4,9 +4,20 @@ import { validateVersion } from './validation.js';
 export function materialize(roster, rules) { return monthDates(roster.year, roster.month).flatMap(date => rules.filter(rule => rule.generatorEnabled && applies(rule, date)).map(rule => ({ id: uuid(), date, ruleId: rule.id, name: rule.name, locationId: rule.locationId, minStaff: rule.minStaff, maxStaff: rule.maxStaff, assignments: [] }))); }
 function applies(rule, date) { const a = rule.appliesOn || {}; return a.type === 'date-range' ? (!a.startDate || date >= a.startDate) && (!a.endDate || date <= a.endDate) : (a.weekdays || []).includes(weekday(date)); }
 const assign = (employeeId, source = 'generated', locked = false) => ({ id: uuid(), employeeId, source, locked, createdAt: now(), updatedAt: now() });
-export function generate(roster, prior, rules, employees, availabilities, { fromDate, seed = String(now()), preserveGeneratedAssignments = true } = {}) {
+export function generate(roster, prior, rules, employees, availabilities, { fromDate, seed = String(now()), preserveGeneratedAssignments = true, resetGenerated = false } = {}) {
   const target = fromDate || `${roster.year}-${String(roster.month).padStart(2, '0')}-01`;
-  const shifts = prior ? clone(prior.shifts) : materialize(roster, rules);
+  let shifts;
+  if (!prior) shifts = materialize(roster, rules);
+  else if (resetGenerated) {
+    const previousGenerated = prior.shifts.filter(shift => !shift.manual);
+    const manualShifts = clone(prior.shifts.filter(shift => shift.manual));
+    shifts = materialize(roster, rules).map(shift => {
+      const previous = previousGenerated.find(old => old.date === shift.date && old.ruleId === shift.ruleId);
+      if (previous && shift.date < target) return clone(previous);
+      if (previous) shift.assignments = clone(previous.assignments.filter(assignment => assignment.locked));
+      return shift;
+    }).concat(manualShifts);
+  } else shifts = clone(prior.shifts);
   const worked = new Map();
   for (const shift of shifts) for (const a of shift.assignments) if (shift.date < target || a.locked || (preserveGeneratedAssignments && !isUnavailable(availabilities, a.employeeId, shift.date))) worked.set(`${a.employeeId}:${shift.date}`, true);
   for (const shift of shifts.filter(s => s.date >= target)) shift.assignments = shift.assignments.filter(a => a.locked || (preserveGeneratedAssignments && !isUnavailable(availabilities, a.employeeId, shift.date)));

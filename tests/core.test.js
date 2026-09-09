@@ -34,4 +34,12 @@ describe('calendar and availability', () => {
     expect(shifts.flatMap(s=>s.assignments).filter(a=>a.employeeId==='b')).toHaveLength(20);
     expect(shifts.some(s=>s.assignments.length===2)).toBe(true);
   });
+  it('spreads target assignments while respecting the soft consecutive-days preference', () => {
+    const roster={id:'r',year:2026,month:10,targetDaysWorked:0,daysWorkedTarget:{}};
+    const rules=[{id:'rule',name:'Day',locationId:null,minStaff:0,maxStaff:1,generatorEnabled:true,appliesOn:{type:'weekdays',weekdays:[0,1,2,3,4,5,6]}}];
+    const employees=[{id:'a',name:'A',locationId:null,targetDaysWorked:15,maxConsecutiveWorkDays:2}];
+    const dates=generate(roster,null,rules,employees,[],{seed:'spread'}).shifts.filter(s=>s.assignments.length).map(s=>s.date);
+    let longest=0, current=0, previous=''; for (const date of dates.sort()) { current = previous && Date.parse(`${date}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`) === 86400000 ? current+1 : 1; longest=Math.max(longest,current); previous=date; }
+    expect(dates).toHaveLength(15); expect(longest).toBeLessThanOrEqual(2);
+  });
 });

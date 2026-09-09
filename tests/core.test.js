@@ -25,4 +25,13 @@ describe('calendar and availability', () => {
     expect((await get('locations', location.id)).name).toBe('Test location');
     await remove('locations', location.id);
   });
+  it('fills concurrent shift capacity toward individual employee targets', () => {
+    const roster={id:'r',year:2026,month:10,targetDaysWorked:0,daysWorkedTarget:{}};
+    const rules=[{id:'rule',name:'Day',locationId:null,minStaff:1,maxStaff:2,generatorEnabled:true,appliesOn:{type:'weekdays',weekdays:[0,1,2,3,4,5,6]}}];
+    const employees=[{id:'a',name:'A',locationId:null,targetDaysWorked:20},{id:'b',name:'B',locationId:null,targetDaysWorked:20}];
+    const shifts=generate(roster,null,rules,employees,[],{seed:'same'}).shifts;
+    expect(shifts.flatMap(s=>s.assignments).filter(a=>a.employeeId==='a')).toHaveLength(20);
+    expect(shifts.flatMap(s=>s.assignments).filter(a=>a.employeeId==='b')).toHaveLength(20);
+    expect(shifts.some(s=>s.assignments.length===2)).toBe(true);
+  });
 });

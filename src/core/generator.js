@@ -1,7 +1,7 @@
 import { uuid, now, monthDates, weekday, seeded, clone } from './utils.js';
 import { isUnavailable } from './availability.js';
 import { validateVersion } from './validation.js';
-export function materialize(roster, rules) { return monthDates(roster.year, roster.month).flatMap(date => rules.filter(rule => applies(rule, date)).map(rule => ({ id: uuid(), date, ruleId: rule.id, name: rule.name, locationId: rule.locationId, minStaff: rule.minStaff, maxStaff: rule.maxStaff, assignments: [] }))); }
+export function materialize(roster, rules) { return monthDates(roster.year, roster.month).flatMap(date => rules.filter(rule => rule.generatorEnabled && applies(rule, date)).map(rule => ({ id: uuid(), date, ruleId: rule.id, name: rule.name, locationId: rule.locationId, minStaff: rule.minStaff, maxStaff: rule.maxStaff, assignments: [] }))); }
 function applies(rule, date) { const a = rule.appliesOn || {}; return a.type === 'date-range' ? (!a.startDate || date >= a.startDate) && (!a.endDate || date <= a.endDate) : (a.weekdays || []).includes(weekday(date)); }
 const assign = (employeeId, source = 'generated', locked = false) => ({ id: uuid(), employeeId, source, locked, createdAt: now(), updatedAt: now() });
 export function generate(roster, prior, rules, employees, availabilities, { fromDate, seed = String(now()), preserveGeneratedAssignments = true } = {}) {
@@ -15,7 +15,7 @@ export function generate(roster, prior, rules, employees, availabilities, { from
   const ordered = shifts.filter(s => s.date >= target).sort((a, b) => candidateCount(a) - candidateCount(b) || (b.minStaff / b.maxStaff) - (a.minStaff / a.maxStaff));
   function candidateCount(shift) { return employees.filter(e => eligible(e, shift)).length; }
   function eligible(employee, shift) { return (!employee.locationId || employee.locationId === shift.locationId) && !isUnavailable(availabilities, employee.id, shift.date) && !worked.has(`${employee.id}:${shift.date}`) && !shift.assignments.some(a => a.employeeId === employee.id); }
-  for (const shift of ordered) while (shift.assignments.length < shift.minStaff) { const candidates = employees.filter(e => eligible(e, shift)); if (!candidates.length) break; candidates.sort((a, b) => (count[a.id] / (roster.daysWorkedTarget?.[a.id] || roster.targetDaysWorked || 1)) - (count[b.id] / (roster.daysWorkedTarget?.[b.id] || roster.targetDaysWorked || 1)) || rng() - .5); const employee = candidates[0]; shift.assignments.push(assign(employee.id)); worked.set(`${employee.id}:${shift.date}`, true); count[employee.id]++; }
+  for (const shift of ordered) while (shift.assignments.length < shift.minStaff) { const candidates = employees.filter(e => eligible(e, shift)); if (!candidates.length) break; candidates.sort((a, b) => (count[a.id] / (a.targetDaysWorked ?? roster.daysWorkedTarget?.[a.id] ?? roster.targetDaysWorked ?? 1)) - (count[b.id] / (b.targetDaysWorked ?? roster.daysWorkedTarget?.[b.id] ?? roster.targetDaysWorked ?? 1)) || rng() - .5); const employee = candidates[0]; shift.assignments.push(assign(employee.id)); worked.set(`${employee.id}:${shift.date}`, true); count[employee.id]++; }
   const version = { id: prior?.id || uuid(), rosterId: roster.id, status: 'proposal', generatedFromDate: target, generatorSeed: seed, generatorConfig: { preserveGeneratedAssignments }, targetDaysWorked: roster.targetDaysWorked, daysWorkedTarget: roster.daysWorkedTarget, shifts, createdAt: prior?.createdAt || now(), updatedAt: now() };
   version.coverageReport = validateVersion(version, employees, availabilities); return version;
 }

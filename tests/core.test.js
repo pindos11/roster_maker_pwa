@@ -14,7 +14,7 @@ describe('calendar and availability', () => {
   });
   it('generates repeatably and respects unavailable dates', () => {
     const roster={id:'r',year:2026,month:10,targetDaysWorked:1,daysWorkedTarget:{a:1,b:1}};
-    const rules=[{id:'rule',name:'Day',locationId:null,minStaff:1,maxStaff:1,appliesOn:{type:'date-range',startDate:'2026-10-01',endDate:'2026-10-01'}}];
+    const rules=[{id:'rule',name:'Day',locationId:null,minStaff:1,maxStaff:1,generatorEnabled:true,appliesOn:{type:'date-range',startDate:'2026-10-01',endDate:'2026-10-01'}}];
     const employees=[{id:'a',name:'A',locationId:null},{id:'b',name:'B',locationId:null}];
     const availability=[{employeeId:'a',startDate:'2026-10-01',endDate:'2026-10-01'}];
     expect(generate(roster,null,rules,employees,availability,{seed:'same'}).shifts[0].assignments[0].employeeId).toBe('b');

@@ -110,8 +110,6 @@ interface Roster {
   name: string;
   year: number;
   month: number;                 // 1–12
-  targetDaysWorked: number;
-  daysWorkedTarget: Record<string, number>;
   productiveVersionId?: string;
   draftVersionId?: string;       // The editable current proposal, if one exists
   createdAt: number;

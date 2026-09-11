@@ -13,6 +13,6 @@ export function validateVersion(version, employees, availabilities) {
       targetDeviation[employee.id] = (targetDeviation[employee.id] || 0) + 1;
     }
   }
-  for (const employee of employees) targetDeviation[employee.id] = (targetDeviation[employee.id] || 0) - (employee.targetDaysWorked ?? version.daysWorkedTarget?.[employee.id] ?? version.targetDaysWorked ?? 0);
+  for (const employee of employees) targetDeviation[employee.id] = (targetDeviation[employee.id] || 0) - (employee.targetDaysWorked ?? 0);
   return { unfilledSlots, conflicts, targetDeviation, generatedAt: Date.now() };
 }

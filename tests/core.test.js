@@ -13,7 +13,7 @@ describe('calendar and availability', () => {
     expect(isUnavailable([{employeeId:'a',startDate:'2026-10-01',endDate:'2026-10-03'}],'a','2026-10-02')).toBe(true);
   });
   it('generates repeatably and respects unavailable dates', () => {
-    const roster={id:'r',year:2026,month:10,targetDaysWorked:1,daysWorkedTarget:{a:1,b:1}};
+    const roster={id:'r',year:2026,month:10};
     const rules=[{id:'rule',name:'Day',locationId:null,minStaff:1,maxStaff:1,generatorEnabled:true,appliesOn:{type:'date-range',startDate:'2026-10-01',endDate:'2026-10-01'}}];
     const employees=[{id:'a',name:'A',locationId:null},{id:'b',name:'B',locationId:null}];
     const availability=[{employeeId:'a',startDate:'2026-10-01',endDate:'2026-10-01'}];
@@ -26,7 +26,7 @@ describe('calendar and availability', () => {
     await remove('locations', location.id);
   });
   it('fills concurrent shift capacity toward individual employee targets', () => {
-    const roster={id:'r',year:2026,month:10,targetDaysWorked:0,daysWorkedTarget:{}};
+    const roster={id:'r',year:2026,month:10};
     const rules=[{id:'rule',name:'Day',locationId:null,minStaff:1,maxStaff:2,generatorEnabled:true,appliesOn:{type:'weekdays',weekdays:[0,1,2,3,4,5,6]}}];
     const employees=[{id:'a',name:'A',locationId:null,targetDaysWorked:20},{id:'b',name:'B',locationId:null,targetDaysWorked:20}];
     const shifts=generate(roster,null,rules,employees,[],{seed:'same'}).shifts;
@@ -35,7 +35,7 @@ describe('calendar and availability', () => {
     expect(shifts.some(s=>s.assignments.length===2)).toBe(true);
   });
   it('spreads target assignments while respecting the soft consecutive-days preference', () => {
-    const roster={id:'r',year:2026,month:10,targetDaysWorked:0,daysWorkedTarget:{}};
+    const roster={id:'r',year:2026,month:10};
     const rules=[{id:'rule',name:'Day',locationId:null,minStaff:0,maxStaff:1,generatorEnabled:true,appliesOn:{type:'weekdays',weekdays:[0,1,2,3,4,5,6]}}];
     const employees=[{id:'a',name:'A',locationId:null,targetDaysWorked:15,maxConsecutiveWorkDays:2}];
     const dates=generate(roster,null,rules,employees,[],{seed:'spread'}).shifts.filter(s=>s.assignments.length).map(s=>s.date);

@@ -34,6 +34,14 @@ describe('calendar and availability', () => {
     expect(shifts.flatMap(s=>s.assignments).filter(a=>a.employeeId==='b')).toHaveLength(20);
     expect(shifts.some(s=>s.assignments.length===2)).toBe(true);
   });
+  it('uses the standard 20-day target for legacy employees without a saved target', () => {
+    const roster={id:'r',year:2026,month:10};
+    const rules=[{id:'rule',name:'Day',locationId:null,minStaff:1,maxStaff:2,generatorEnabled:true,appliesOn:{type:'weekdays',weekdays:[0,1,2,3,4,5,6]}}];
+    const employees=[{id:'a',name:'A',locationId:null},{id:'b',name:'B',locationId:null}];
+    const shifts=generate(roster,null,rules,employees,[],{seed:'legacy'}).shifts;
+    expect(shifts.flatMap(s=>s.assignments).filter(a=>a.employeeId==='a')).toHaveLength(20);
+    expect(shifts.flatMap(s=>s.assignments).filter(a=>a.employeeId==='b')).toHaveLength(20);
+  });
   it('spreads target assignments while respecting the soft consecutive-days preference', () => {
     const roster={id:'r',year:2026,month:10};
     const rules=[{id:'rule',name:'Day',locationId:null,minStaff:0,maxStaff:1,generatorEnabled:true,appliesOn:{type:'weekdays',weekdays:[0,1,2,3,4,5,6]}}];

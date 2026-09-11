@@ -26,7 +26,9 @@ export function generate(roster, prior, rules, employees, availabilities, { from
   const ordered = shifts.filter(s => s.date >= target).sort((a, b) => candidateCount(a) - candidateCount(b) || (b.minStaff / b.maxStaff) - (a.minStaff / a.maxStaff));
   function candidateCount(shift) { return employees.filter(e => eligible(e, shift)).length; }
   function eligible(employee, shift) { return (!employee.locationId || employee.locationId === shift.locationId) && !isUnavailable(availabilities, employee.id, shift.date) && !worked.has(`${employee.id}:${shift.date}`) && !shift.assignments.some(a => a.employeeId === employee.id); }
-  const targetFor = employee => employee.targetDaysWorked ?? 0;
+  // Older backups may not have this field. Match the employee form's default
+  // instead of treating those employees as having a zero-day target.
+  const targetFor = employee => employee.targetDaysWorked ?? 20;
   const softLimitFor = employee => employee.maxConsecutiveWorkDays ?? 5;
   const shiftDatesFor = employeeId => shifts.filter(s => s.assignments.some(a => a.employeeId === employeeId)).map(s => s.date);
   const addDays = (date, amount) => { const d = new Date(`${date}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + amount); return d.toISOString().slice(0, 10); };

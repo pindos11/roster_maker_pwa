@@ -108,6 +108,7 @@ interface ShiftAssignment {
 interface Roster {
   id: string;
   name: string;
+  locationId: string;            // A roster covers exactly one location
   year: number;
   month: number;                 // 1–12
   productiveVersionId?: string;
@@ -142,7 +143,7 @@ interface CoverageReport {
 }
 ```
 
-`ShiftRule` is a reusable default. A roster version stores materialized `ShiftInstance`s, so later rule changes do not rewrite historical or productive schedules.
+`ShiftRule` is a reusable default. A roster version stores materialized `ShiftInstance`s, so later rule changes do not rewrite historical or productive schedules. A generated rule must have a location, and each location may have exactly one generated rule. Generation materializes only the generated rule matching the roster's location.
 
 ## 5. IndexedDB Schema
 

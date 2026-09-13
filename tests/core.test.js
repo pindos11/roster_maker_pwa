@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseAvailabilityText, isUnavailable } from '../src/core/availability.js';
 import { monthDates, normalizedName } from '../src/core/utils.js';
 import { generate } from '../src/core/generator.js';
+import { compareQuality, qualityMetrics } from '../src/core/quality.js';
 import { create, get, remove } from '../src/db/index.js';
 
 describe('calendar and availability', () => {
@@ -61,5 +62,30 @@ describe('calendar and availability', () => {
     const dates=generate(roster,null,rules,employees,[],{seed:'spread'}).shifts.filter(s=>s.assignments.length).map(s=>s.date);
     let longest=0, current=0, previous=''; for (const date of dates.sort()) { current = previous && Date.parse(`${date}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`) === 86400000 ? current+1 : 1; longest=Math.max(longest,current); previous=date; }
     expect(dates).toHaveLength(15); expect(longest).toBeLessThanOrEqual(2);
+  });
+  it('records deterministic soft-v2 optimization metadata and retains valid generated work on regeneration', () => {
+    const roster={id:'r',locationId:'north',year:2026,month:10};
+    const rules=[{id:'rule',name:'Day',locationId:'north',minStaff:1,maxStaff:1,generatorEnabled:true,appliesOn:{type:'date-range',startDate:'2026-10-01',endDate:'2026-10-02'}}];
+    const employees=[{id:'a',locationId:null,targetDaysWorked:1},{id:'b',locationId:null,targetDaysWorked:1}];
+    const first=generate(roster,null,rules,employees,[],{seed:'v2'});
+    const next=generate(roster,first,rules,employees,[],{seed:'v2',fromDate:'2026-10-01',resetGenerated:true,preserveGeneratedAssignments:true});
+    expect(next.generatorConfig.generatorVersion).toBe('soft-v2');
+    expect(next.optimizationReport.final).toEqual(next.optimizationReport.baseline);
+    expect(next.shifts.map(s=>s.assignments.map(a=>a.employeeId))).toEqual(first.shifts.map(s=>s.assignments.map(a=>a.employeeId)));
+  });
+  it('uses lexicographic quality: coverage outranks targets, then rest, then changes', () => {
+    expect(compareQuality({coverageGaps:0,targetDeviation:10,consecutiveExcess:10,changes:10},{coverageGaps:1,targetDeviation:0,consecutiveExcess:0,changes:0})).toBeLessThan(0);
+    expect(compareQuality({coverageGaps:0,targetDeviation:1,consecutiveExcess:10,changes:10},{coverageGaps:0,targetDeviation:2,consecutiveExcess:0,changes:0})).toBeLessThan(0);
+    expect(compareQuality({coverageGaps:0,targetDeviation:1,consecutiveExcess:1,changes:0},{coverageGaps:0,targetDeviation:1,consecutiveExcess:1,changes:1})).toBeLessThan(0);
+    const metrics=qualityMetrics([{id:'s',date:'2026-10-01',minStaff:2,assignments:[{id:'a',employeeId:'a',source:'generated',locked:false}]}],[{id:'a',targetDaysWorked:1,maxConsecutiveWorkDays:1}],new Set());
+    expect(metrics.coverageGaps).toBe(1);
+  });
+  it('finishes infeasible schedules without violating hard assignment constraints', () => {
+    const roster={id:'r',locationId:'north',year:2026,month:10};
+    const rules=[{id:'rule',name:'Day',locationId:'north',minStaff:2,maxStaff:2,generatorEnabled:true,appliesOn:{type:'date-range',startDate:'2026-10-01',endDate:'2026-10-01'}}];
+    const result=generate(roster,null,rules,[{id:'a',locationId:'north'}],[],{seed:'infeasible'});
+    expect(result.shifts[0].assignments).toHaveLength(1);
+    expect(result.coverageReport.unfilledSlots[0].missing).toBe(1);
+    expect(result.optimizationReport.evaluations).toBeLessThanOrEqual(5001);
   });
 });

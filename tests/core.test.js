@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import { parseAvailabilityText, isUnavailable } from '../src/core/availability.js';
+import { availabilityImportMutations, parseAvailabilityText, isUnavailable } from '../src/core/availability.js';
 import { monthDates, normalizedName } from '../src/core/utils.js';
 import { generate } from '../src/core/generator.js';
 import { compareQuality, qualityMetrics } from '../src/core/quality.js';
@@ -11,7 +11,19 @@ describe('calendar and availability', () => {
     expect(normalizedName(' Ada   Lovelace ')).toBe('ada lovelace');
     expect(parseAvailabilityText('\uFEFF{"employee_name":"Ada","selected_dates":["2026-10-03"]}').dates).toEqual(['2026-10-03']);
     expect(() => parseAvailabilityText('{"employee_name":"Ada","selected_dates":["bad"]}')).toThrow();
+    expect(() => parseAvailabilityText('{"employee_name":"Ada","selected_dates":["2026-10-03","2026-11-01"]}')).toThrow('same month');
     expect(isUnavailable([{employeeId:'a',startDate:'2026-10-01',endDate:'2026-10-03'}],'a','2026-10-02')).toBe(true);
+  });
+  it('treats imported selected dates as available and makes every other day in that month unavailable', () => {
+    const preview = { ...parseAvailabilityText('{"employee_name":"Ada","selected_dates":["2026-10-03","2026-10-14"]}'), datesToAdd: monthDates(2026, 10).filter(date => !['2026-10-03', '2026-10-14'].includes(date)) };
+    const mutations = availabilityImportMutations(preview, 'a', [{ id: 'old', employeeId: 'a', startDate: '2026-09-29', endDate: '2026-10-05', source: 'manual' }]);
+    const resulting = [...mutations.replacements, ...mutations.additions];
+    expect(mutations.removeIds).toEqual(['old']);
+    expect(isUnavailable(resulting, 'a', '2026-10-03')).toBe(false);
+    expect(isUnavailable(resulting, 'a', '2026-10-14')).toBe(false);
+    expect(isUnavailable(resulting, 'a', '2026-10-01')).toBe(true);
+    expect(isUnavailable(resulting, 'a', '2026-10-31')).toBe(true);
+    expect(isUnavailable(resulting, 'a', '2026-09-30')).toBe(true);
   });
   it('generates repeatably and respects unavailable dates', () => {
     const roster={id:'r',locationId:'north',year:2026,month:10};

@@ -11,9 +11,11 @@ export function assignmentSet(shifts) {
 
 export function qualityMetrics(shifts, employees, baselineAssignments = new Set()) {
   const workedDates = new Map(employees.map(employee => [employee.id, new Set()]));
+  const extraStaffByDate = new Map();
   let coverageGaps = 0;
   for (const shift of shifts) {
     coverageGaps += Math.max(0, shift.minStaff - shift.assignments.length);
+    extraStaffByDate.set(shift.date, (extraStaffByDate.get(shift.date) || 0) + Math.max(0, shift.assignments.length - shift.minStaff));
     for (const assignment of shift.assignments) {
       if (!workedDates.has(assignment.employeeId)) workedDates.set(assignment.employeeId, new Set());
       workedDates.get(assignment.employeeId).add(shift.date);
@@ -34,11 +36,12 @@ export function qualityMetrics(shifts, employees, baselineAssignments = new Set(
   let changes = 0;
   for (const key of current) if (!baselineAssignments.has(key)) changes++;
   for (const key of baselineAssignments) if (!current.has(key)) changes++;
-  return { coverageGaps, targetDeviation, consecutiveExcess, changes };
+  const staffingSpread = [...extraStaffByDate.values()].reduce((total, extra) => total + extra ** 2, 0);
+  return { coverageGaps, targetDeviation, staffingSpread, consecutiveExcess, changes };
 }
 
 export function compareQuality(left, right) {
-  for (const key of ['coverageGaps', 'targetDeviation', 'consecutiveExcess', 'changes']) {
+  for (const key of ['coverageGaps', 'targetDeviation', 'staffingSpread', 'consecutiveExcess', 'changes']) {
     if (left[key] !== right[key]) return left[key] - right[key];
   }
   return 0;

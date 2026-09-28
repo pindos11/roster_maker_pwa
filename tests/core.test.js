@@ -75,6 +75,14 @@ describe('calendar and availability', () => {
     let longest=0, current=0, previous=''; for (const date of dates.sort()) { current = previous && Date.parse(`${date}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`) === 86400000 ? current+1 : 1; longest=Math.max(longest,current); previous=date; }
     expect(dates).toHaveLength(15); expect(longest).toBeLessThanOrEqual(2);
   });
+  it('spreads optional target assignments across days instead of filling the first day', () => {
+    const roster={id:'r',locationId:'north',year:2026,month:10};
+    const rules=[{id:'rule',name:'Day',locationId:'north',minStaff:0,maxStaff:4,generatorEnabled:true,appliesOn:{type:'weekdays',weekdays:[0,1,2,3,4,5,6]}}];
+    const employees=['a','b','c','d'].map(id=>({id,locationId:null,targetDaysWorked:1}));
+    const assigned=generate(roster,null,rules,employees,[],{seed:'day-spread'}).shifts.filter(shift=>shift.assignments.length);
+    expect(assigned).toHaveLength(4);
+    expect(assigned.every(shift=>shift.assignments.length === 1)).toBe(true);
+  });
   it('records deterministic soft-v2 optimization metadata and retains valid generated work on regeneration', () => {
     const roster={id:'r',locationId:'north',year:2026,month:10};
     const rules=[{id:'rule',name:'Day',locationId:'north',minStaff:1,maxStaff:1,generatorEnabled:true,appliesOn:{type:'date-range',startDate:'2026-10-01',endDate:'2026-10-02'}}];

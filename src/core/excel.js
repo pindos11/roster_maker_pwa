@@ -2,25 +2,29 @@ import { monthDates } from './utils.js';
 
 const excelColor = color => `FF${(color || '#FFFFFF').replace('#', '').toUpperCase()}`;
 
-export async function exportRosterWorkbook(roster, version, employees, settings = {}) {
+export async function exportRosterWorkbook(roster, version, employees, settings = {}, rules = []) {
   const { default: ExcelJS } = await import('exceljs');
   const dates = monthDates(roster.year, roster.month);
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Roster');
   sheet.addRow(['Employee', ...dates.map(date => Number(date.slice(8)))]);
   const employeeColor = settings.employeeColumnColor || '#D9EAF7';
+  const shiftColorByRuleId = new Map(rules.map(rule => [rule.id, rule.color]));
+  const border = { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } };
   employees.forEach((employee, index) => {
     const row = index + 2;
     const nameCell = sheet.getCell(row, 1);
     nameCell.value = employee.name;
     nameCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: excelColor(employeeColor) } };
     nameCell.font = { bold: true };
+    nameCell.border = border;
     dates.forEach((date, column) => {
+      const cell = sheet.getCell(row, column + 2);
+      cell.border = border;
       const shift = version.shifts.find(item => item.date === date && item.assignments.some(assignment => assignment.employeeId === employee.id));
       if (!shift) return;
-      const cell = sheet.getCell(row, column + 2);
       cell.value = 'W';
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: excelColor(shift.color || '#B7E1CD') } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: excelColor(shiftColorByRuleId.get(shift.ruleId) || shift.color || '#B7E1CD') } };
       cell.alignment = { horizontal: 'center' };
     });
   });

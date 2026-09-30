@@ -10,7 +10,9 @@ export function validateVersion(version, employees, availabilities) {
       if (employee.locationId && employee.locationId !== shift.locationId) conflicts.push({ assignmentId: assignment.id, message: `${employee.name} is assigned outside their location.` });
       if (isUnavailable(availabilities, employee.id, shift.date)) conflicts.push({ assignmentId: assignment.id, message: `${employee.name} is unavailable on ${shift.date}.` });
       const key = `${employee.id}:${shift.date}`; if (assigned.has(key)) conflicts.push({ assignmentId: assignment.id, message: `${employee.name} has more than one shift on ${shift.date}.` }); assigned.set(key, true);
-      targetDeviation[employee.id] = (targetDeviation[employee.id] || 0) + 1;
+      // A non-generator/manual shift still participates in all hard checks
+      // above, but it is outside the generator's per-employee target.
+      if (!shift.manual) targetDeviation[employee.id] = (targetDeviation[employee.id] || 0) + 1;
     }
   }
   for (const employee of employees) targetDeviation[employee.id] = (targetDeviation[employee.id] || 0) - (employee.targetDaysWorked ?? 20);

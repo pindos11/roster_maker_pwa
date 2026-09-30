@@ -2,6 +2,46 @@ import { get, save, transaction } from '../db/index.js';
 import { generate } from './generator.js';
 import { validateVersion } from './validation.js';
 import { clone, now, uuid } from './utils.js';
+async function removeOrphanedAssignments(tx, employees, availabilities) {
+  const employeeIds = new Set(employees.map(employee => employee.id));
+  const versions = await tx.objectStore('rosterVersions').getAll();
+  let removed = 0;
+  for (const version of versions) {
+    let changed = false;
+    for (const shift of version.shifts || []) {
+      const retained = shift.assignments.filter(assignment => employeeIds.has(assignment.employeeId));
+      removed += shift.assignments.length - retained.length;
+      if (retained.length !== shift.assignments.length) {
+        shift.assignments = retained;
+        changed = true;
+      }
+    }
+    if (!changed) continue;
+    version.coverageReport = validateVersion(version, employees, availabilities);
+    version.updatedAt = now();
+    await tx.objectStore('rosterVersions').put(version);
+  }
+  return removed;
+}
+
+export async function deleteEmployee(employeeId) {
+  return transaction(async tx => {
+    await tx.objectStore('employees').delete(employeeId);
+    const employees = await tx.objectStore('employees').getAll();
+    const availabilities = await tx.objectStore('availabilities').getAll();
+    return removeOrphanedAssignments(tx, employees, availabilities);
+  });
+}
+
+// Repair versions created before employee deletion cascaded to assignments.
+export async function pruneOrphanedAssignments() {
+  return transaction(async tx => removeOrphanedAssignments(
+    tx,
+    await tx.objectStore('employees').getAll(),
+    await tx.objectStore('availabilities').getAll()
+  ));
+}
+
 export async function generateProposal(rosterId, deps, options = {}) { const roster = await get('rosters', rosterId); const prior = roster.draftVersionId ? await get('rosterVersions', roster.draftVersionId) : null; const version = generate(roster, prior, deps.rules, deps.employees, deps.availabilities, { resetGenerated: true, ...options }); await transaction(async tx => { await tx.objectStore('rosterVersions').put(version); roster.draftVersionId = version.id; roster.updatedAt = now(); await tx.objectStore('rosters').put(roster); }); return version; }
 export async function acceptProposal(versionId, deps) { const version = await get('rosterVersions', versionId), roster = await get('rosters', version.rosterId); if (!version || version.status !== 'proposal') throw new Error('Only a proposal can be accepted.'); version.coverageReport = validateVersion(version, deps.employees, deps.availabilities); await transaction(async tx => { if (roster.productiveVersionId) { const old = await tx.objectStore('rosterVersions').get(roster.productiveVersionId); old.status = 'archived'; old.updatedAt = now(); await tx.objectStore('rosterVersions').put(old); } version.status = 'productive'; version.acceptedAt = now(); version.updatedAt = now(); roster.productiveVersionId = version.id; roster.draftVersionId = undefined; roster.updatedAt = now(); await tx.objectStore('rosterVersions').put(version); await tx.objectStore('rosters').put(roster); }); return version; }
 export async function copyProductiveToProposal(rosterId) { const roster = await get('rosters', rosterId), productive = await get('rosterVersions', roster.productiveVersionId); if (!productive) throw new Error('There is no productive version to copy.'); const proposal = clone(productive); proposal.id = uuid(); proposal.status = 'proposal'; proposal.createdAt = proposal.updatedAt = now(); delete proposal.acceptedAt; await transaction(async tx => { roster.draftVersionId = proposal.id; await tx.objectStore('rosterVersions').put(proposal); await tx.objectStore('rosters').put(roster); }); return proposal; }

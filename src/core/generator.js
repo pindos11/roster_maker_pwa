@@ -32,7 +32,9 @@ export function generate(roster, prior, rules, employees, availabilities, { from
   const worked = new Map();
   for (const shift of shifts) for (const a of shift.assignments) if (shift.date < target || a.locked || (preserveGeneratedAssignments && !isUnavailable(availabilities, a.employeeId, shift.date))) worked.set(`${a.employeeId}:${shift.date}`, true);
   for (const shift of shifts.filter(s => s.date >= target)) shift.assignments = shift.assignments.filter(a => a.locked || (preserveGeneratedAssignments && !isUnavailable(availabilities, a.employeeId, shift.date)));
-  const count = Object.fromEntries(employees.map(e => [e.id, 0])); for (const shift of shifts) for (const a of shift.assignments) count[a.employeeId] = (count[a.employeeId] || 0) + 1;
+  // Manual (non-generator) shifts reserve the employee's date, but are not
+  // work produced by this generator and therefore must not consume its target.
+  const count = Object.fromEntries(employees.map(e => [e.id, 0])); for (const shift of shifts.filter(shift => !shift.manual)) for (const a of shift.assignments) count[a.employeeId] = (count[a.employeeId] || 0) + 1;
   const rng = seeded(seed);
   const ordered = shifts.filter(s => s.date >= target).sort((a, b) => candidateCount(a) - candidateCount(b) || (b.minStaff / b.maxStaff) - (a.minStaff / a.maxStaff));
   function candidateCount(shift) { return employees.filter(e => eligible(e, shift)).length; }
@@ -41,7 +43,7 @@ export function generate(roster, prior, rules, employees, availabilities, { from
   // instead of treating those employees as having a zero-day target.
   const targetFor = employee => employee.targetDaysWorked ?? 20;
   const softLimitFor = employee => employee.maxConsecutiveWorkDays ?? 5;
-  const shiftDatesFor = employeeId => shifts.filter(s => s.assignments.some(a => a.employeeId === employeeId)).map(s => s.date);
+  const shiftDatesFor = employeeId => shifts.filter(shift => !shift.manual && shift.assignments.some(assignment => assignment.employeeId === employeeId)).map(shift => shift.date);
   const addDays = (date, amount) => { const d = new Date(`${date}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + amount); return d.toISOString().slice(0, 10); };
   const resultingRun = (employeeId, date) => { const dates = new Set(shiftDatesFor(employeeId)); let before = 0, after = 0, cursor = addDays(date, -1); while (dates.has(cursor)) { before++; cursor = addDays(cursor, -1); } cursor = addDays(date, 1); while (dates.has(cursor)) { after++; cursor = addDays(cursor, 1); } return before + 1 + after; };
   const spacing = (employeeId, date) => { const dates = shiftDatesFor(employeeId); return dates.length ? Math.min(...dates.map(other => Math.abs(Date.parse(`${date}T00:00:00Z`) - Date.parse(`${other}T00:00:00Z`)))) : Number.MAX_SAFE_INTEGER; };

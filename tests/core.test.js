@@ -5,6 +5,7 @@ import { monthDates, normalizedName } from '../src/core/utils.js';
 import { generate } from '../src/core/generator.js';
 import { compareQuality, qualityMetrics } from '../src/core/quality.js';
 import { create, get, remove } from '../src/db/index.js';
+import { deleteEmployee } from '../src/core/versions.js';
 
 describe('calendar and availability', () => {
   it('normalizes names and validates availability input', () => {
@@ -50,6 +51,18 @@ describe('calendar and availability', () => {
     expect((await get('locations', location.id)).name).toBe('Test location');
     await remove('locations', location.id);
   });
+  it('removes a deleted employee from every retained roster assignment', async () => {
+    const employee = await create('employees', { name: 'Deleted employee' });
+    const version = await create('rosterVersions', {
+      rosterId: 'cleanup-roster',
+      shifts: [{ id: 'cleanup-shift', name: 'Day', locationId: null, date: '2026-10-01', minStaff: 1, maxStaff: 1, assignments: [{ id: 'cleanup-assignment', employeeId: employee.id }] }]
+    });
+    expect(await deleteEmployee(employee.id)).toBe(1);
+    const cleaned = await get('rosterVersions', version.id);
+    expect(cleaned.shifts[0].assignments).toEqual([]);
+    expect(cleaned.coverageReport.conflicts).not.toContainEqual(expect.objectContaining({ message: 'Assignment employee no longer exists.' }));
+    await remove('rosterVersions', version.id);
+  });
   it('fills concurrent shift capacity toward individual employee targets', () => {
     const roster={id:'r',locationId:'north',year:2026,month:10};
     const rules=[{id:'rule',name:'Day',locationId:'north',minStaff:1,maxStaff:2,generatorEnabled:true,appliesOn:{type:'weekdays',weekdays:[0,1,2,3,4,5,6]}}];
@@ -66,6 +79,17 @@ describe('calendar and availability', () => {
     const shifts=generate(roster,null,rules,employees,[],{seed:'legacy'}).shifts;
     expect(shifts.flatMap(s=>s.assignments).filter(a=>a.employeeId==='a')).toHaveLength(20);
     expect(shifts.flatMap(s=>s.assignments).filter(a=>a.employeeId==='b')).toHaveLength(20);
+  });
+  it('keeps manual shifts occupied without counting them toward generated targets', () => {
+    const roster={id:'r',locationId:'north',year:2026,month:10};
+    const rules=[{id:'generated',name:'Generated',locationId:'north',minStaff:0,maxStaff:1,generatorEnabled:true,appliesOn:{type:'date-range',startDate:'2026-10-01',endDate:'2026-10-02'}}];
+    const employees=[{id:'a',name:'A',locationId:'north',targetDaysWorked:1}];
+    const prior={id:'proposal',shifts:[{id:'manual',ruleId:'other',name:'Other',locationId:'north',date:'2026-10-01',manual:true,minStaff:1,maxStaff:1,assignments:[{id:'manual-assignment',employeeId:'a',source:'manual',locked:true}]}]};
+    const result=generate(roster,prior,rules,employees,[],{seed:'manual-shift',resetGenerated:true});
+    const generated=result.shifts.find(shift=>!shift.manual && shift.assignments.length);
+    expect(generated.assignments.map(assignment=>assignment.employeeId)).toEqual(['a']);
+    expect(generated.date).toBe('2026-10-02');
+    expect(result.coverageReport.targetDeviation.a).toBe(0);
   });
   it('spreads target assignments while respecting the soft consecutive-days preference', () => {
     const roster={id:'r',locationId:'north',year:2026,month:10};

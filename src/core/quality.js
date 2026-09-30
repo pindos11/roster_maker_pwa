@@ -15,6 +15,7 @@ export function qualityMetrics(shifts, employees, baselineAssignments = new Set(
   let coverageGaps = 0;
   for (const shift of shifts) {
     coverageGaps += Math.max(0, shift.minStaff - shift.assignments.length);
+    if (shift.manual) continue;
     extraStaffByDate.set(shift.date, (extraStaffByDate.get(shift.date) || 0) + Math.max(0, shift.assignments.length - shift.minStaff));
     for (const assignment of shift.assignments) {
       if (!workedDates.has(assignment.employeeId)) workedDates.set(assignment.employeeId, new Set());

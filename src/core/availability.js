@@ -19,7 +19,7 @@ export function makeImportPreview(text, employees, entries) {
   const existing = employee ? unavailableDates.filter(d => isUnavailable(entries, employee.id, d)) : [];
   return { id: uuid(), ...parsed, matches, employeeId: employee?.id, datesToAdd: unavailableDates, alreadyRecorded: existing };
 }
-export function entriesForImport(preview, employeeId) { return preview.datesToAdd.map(date => ({ id: uuid(), employeeId, startDate: date, endDate: date, status: 'unavailable', source: 'file-import', importedAt: now(), createdAt: now() })); }
+export function entriesForImport(preview, employeeId) { return preview.datesToAdd.map(date => ({ id: uuid(), employeeId, startDate: date, endDate: date, status: 'unavailable', source: preview.source || 'file-import', importedAt: now(), createdAt: now() })); }
 
 // The chooser's selected dates mean available.  Import therefore replaces only
 // this employee's records within the derived month, retaining any portions of
